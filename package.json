@@ -1,0 +1,17 @@
+{
+  "name": "nodebb-plugin-announcement-mailer",
+  "version": "1.0.0",
+  "description": "Send targeted bulk emails to user groups from the NodeBB Admin Panel",
+  "main": "library.js",
+  "author": {
+    "name": "IEU Forum Team",
+    "email": "forum@ieu.app"
+  },
+  "license": "MIT",
+  "nbbpm": {
+    "compatibility": "^4.0.0"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.0"
+  }
+}
