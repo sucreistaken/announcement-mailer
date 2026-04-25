@@ -1,6 +1,6 @@
 {
   "name": "nodebb-plugin-announcement-mailer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Send targeted bulk emails to user groups from the NodeBB Admin Panel",
   "main": "library.js",
   "author": {
