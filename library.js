@@ -22,13 +22,16 @@ const Plugin = {};
 const PLUGIN_ID = 'announcement-mailer';
 const LOG_PREFIX = '[ANNOUNCEMENT-MAILER]';
 
+// Groups we never want to mass-email: banned users (shouldn't be contacted)
+// and unverified users (their emails likely bounce). All other system groups
+// — administrators, Global Moderators, registered-users — are legitimate
+// announcement targets and stay visible. "guests" isn't a NodeBB group
+// (guests have no accounts/emails), so it can't appear here regardless.
 const HIDDEN_GROUPS = [
-	'administrators',
-	'Global Moderators',
 	'unverified-users',
 	'banned-users',
-	'registered-users',
 ];
+const HIDDEN_GROUPS_LC = HIDDEN_GROUPS.map(g => g.toLowerCase());
 
 // ========================
 // SETTINGS HELPER (P7 fix: explicit error handling)
@@ -213,7 +216,7 @@ Plugin.init = async function (params) {
 			const allGroups = await db.getSortedSetRevRange('groups:createtime', 0, -1);
 			const filtered = allGroups.filter(g =>
 				!g.startsWith('cid:') && !g.startsWith('ip-') &&
-				!HIDDEN_GROUPS.includes(g) && g !== '' &&
+				!HIDDEN_GROUPS_LC.includes(String(g).toLowerCase()) && g !== '' &&
 				g.indexOf(':privileges:') === -1
 			);
 			return res.json({ groups: filtered });
