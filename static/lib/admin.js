@@ -217,9 +217,16 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 	// ========================
 
 	function renderGroupCheckbox(containerSelector, cls, groupName, checked) {
-		var input = $('<input type="checkbox">').addClass(cls).val(groupName).prop('checked', !!checked);
-		var label = $('<label>').append(input).append(document.createTextNode(' ' + groupName));
-		var wrap = $('<div class="checkbox">').css('margin', '2px 0').append(label);
+		var safeId = cls + '-' + groupName.replace(/[^a-zA-Z0-9_-]/g, '_');
+		var input = $('<input type="checkbox" class="form-check-input">')
+			.addClass(cls)
+			.attr('id', safeId)
+			.val(groupName)
+			.prop('checked', !!checked);
+		var label = $('<label class="form-check-label">')
+			.attr('for', safeId)
+			.text(' ' + groupName);
+		var wrap = $('<div class="form-check">').append(input).append(label);
 		$(containerSelector).append(wrap);
 	}
 
@@ -263,17 +270,18 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 				return;
 			}
 			d.templates.forEach(function (t) {
-				var wrap = $('<div class="well well-sm" style="margin-bottom:8px;">');
-				wrap.append($('<strong>').text(t.name));
+				var wrap = $('<div class="border rounded p-3 bg-body-tertiary mb-2 d-flex align-items-center justify-content-between gap-2">');
+				var info = $('<div class="text-truncate">');
+				info.append($('<strong>').text(t.name));
 				if (t.subject) {
-					wrap.append(' ').append($('<span class="text-muted">').text('— ' + t.subject));
+					info.append(' ').append($('<span class="text-muted">').text('— ' + t.subject));
 				}
+				wrap.append(info);
 				wrap.append(
-					$('<button class="btn btn-xs btn-danger pull-right btn-delete-template">')
+					$('<button class="btn btn-sm btn-danger btn-delete-template flex-shrink-0">')
 						.attr('data-name', t.name)
 						.html('<i class="fa fa-trash"></i>')
 				);
-				wrap.append('<div class="clearfix"></div>');
 				container.append(wrap);
 			});
 		});
@@ -310,31 +318,31 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 
 	function getStatusBadge(job) {
 		var map = {
-			pending_approval: '<span class="label label-warning"><i class="fa fa-bell"></i> Onay Bekliyor</span>',
-			scheduled: '<span class="label label-info"><i class="fa fa-clock-o"></i> Zamanlanmis</span>',
-			queued: '<span class="label label-default">Kuyrukta</span>',
-			sending: '<span class="label label-info"><i class="fa fa-spinner fa-spin"></i> ' + job.progress + '/' + job.totalRecipients + '</span>',
-			completed: '<span class="label label-success">Tamamlandi</span>',
-			cancelled: '<span class="label label-warning">Iptal</span>',
-			interrupted: '<span class="label label-danger">Kesildi</span>',
+			pending_approval: '<span class="badge text-bg-warning"><i class="fa fa-bell"></i> Onay Bekliyor</span>',
+			scheduled: '<span class="badge text-bg-info"><i class="fa fa-clock-o"></i> Zamanlanmis</span>',
+			queued: '<span class="badge text-bg-secondary">Kuyrukta</span>',
+			sending: '<span class="badge text-bg-info"><i class="fa fa-spinner fa-spin"></i> ' + job.progress + '/' + job.totalRecipients + '</span>',
+			completed: '<span class="badge text-bg-success">Tamamlandi</span>',
+			cancelled: '<span class="badge text-bg-warning">Iptal</span>',
+			interrupted: '<span class="badge text-bg-danger">Kesildi</span>',
 		};
-		return map[job.status] || '<span class="label label-default">' + job.status + '</span>';
+		return map[job.status] || '<span class="badge text-bg-secondary">' + job.status + '</span>';
 	}
 
 	function getActions(job) {
 		var a = '';
 		if (job.status === 'pending_approval') {
-			a += '<button class="btn btn-xs btn-success btn-approve-job" data-job-id="' + job.jobId + '"><i class="fa fa-check"></i></button> ';
-			a += '<button class="btn btn-xs btn-danger btn-reject-job" data-job-id="' + job.jobId + '"><i class="fa fa-times"></i></button> ';
+			a += '<button class="btn btn-sm btn-success btn-approve-job" data-job-id="' + job.jobId + '"><i class="fa fa-check"></i></button> ';
+			a += '<button class="btn btn-sm btn-danger btn-reject-job" data-job-id="' + job.jobId + '"><i class="fa fa-times"></i></button> ';
 		}
 		if (job.status === 'sending') {
-			a += '<button class="btn btn-xs btn-danger btn-cancel-job" data-job-id="' + job.jobId + '"><i class="fa fa-stop"></i></button> ';
+			a += '<button class="btn btn-sm btn-danger btn-cancel-job" data-job-id="' + job.jobId + '"><i class="fa fa-stop"></i></button> ';
 		}
 		if (job.status === 'scheduled') {
-			a += '<button class="btn btn-xs btn-danger btn-cancel-job" data-job-id="' + job.jobId + '"><i class="fa fa-times"></i></button> ';
+			a += '<button class="btn btn-sm btn-danger btn-cancel-job" data-job-id="' + job.jobId + '"><i class="fa fa-times"></i></button> ';
 		}
 		if ((job.status === 'completed' || job.status === 'interrupted') && job.failCount > 0) {
-			a += '<button class="btn btn-xs btn-warning btn-retry-job" data-job-id="' + job.jobId + '"><i class="fa fa-repeat"></i> ' + job.failCount + '</button> ';
+			a += '<button class="btn btn-sm btn-warning btn-retry-job" data-job-id="' + job.jobId + '"><i class="fa fa-repeat"></i> ' + job.failCount + '</button> ';
 		}
 		return a || '-';
 	}
