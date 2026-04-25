@@ -17,6 +17,7 @@ const jobLock = require('./lib/jobLock');
 const unsubscribe = require('./lib/unsubscribe');
 const scheduler = require('./lib/scheduler');
 const analytics = require('./lib/analytics');
+const defaultTemplates = require('./lib/defaultTemplates');
 
 const Plugin = {};
 const PLUGIN_ID = 'announcement-mailer';
@@ -138,6 +139,13 @@ Plugin.init = async function (params) {
 		}
 	} catch (err) {
 		winston.error(`${LOG_PREFIX} Orphan recovery failed: ${err.message}`);
+	}
+
+	// Seed preset templates (idempotent — safe to run on every start)
+	try {
+		await sendHistory.seedDefaultTemplates(defaultTemplates.TEMPLATES);
+	} catch (err) {
+		winston.error(`${LOG_PREFIX} Default template seeding failed: ${err.message}`);
 	}
 
 	// Recover scheduled jobs
