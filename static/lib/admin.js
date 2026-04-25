@@ -32,11 +32,11 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 		log('ACP.init başladı, API base:', API, '| CSRF token mevcut:', !!(window.config && config.csrf_token));
 
 		// ========================
-		// SETTINGS
+		// SETTINGS — websocket'e bağımlı olmayan HTTP load/save
 		// ========================
-		log('Settings.load çağrılıyor...');
-		Settings.load('announcement-mailer', $('#announcement-mailer-settings'), function () {
-			log('Settings.load tamamlandı, otomatik grupları yüklüyorum');
+		log('Settings yükleniyor (HTTP):', api('/settings'));
+		loadSettingsHttp(function () {
+			log('Settings yüklendi, otomatik grupları yüklüyorum');
 			loadAutoGroups();
 		});
 
@@ -49,26 +49,34 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 			$('input.auto-group-checkbox:checked').each(function () { autoGroups.push($(this).val()); });
 			$('[data-key="autoEmailGroups"]').val(JSON.stringify(autoGroups));
 
-			// Form gerçekten ne içeriyor? jQuery serialize ile bakalım
-			var formData = $('#announcement-mailer-settings').serializeArray();
-			log('Form serialize çıktısı (' + formData.length + ' alan):', formData);
-			log('Kaydedilecek autoEmailGroups:', autoGroups);
+			// Form'daki tüm data-key alanlarını topla
+			var payload = {};
+			$('#announcement-mailer-settings [data-key]').each(function () {
+				var key = $(this).attr('data-key');
+				var val;
+				if ($(this).is(':checkbox')) {
+					val = $(this).is(':checked') ? 'on' : '';
+				} else {
+					val = $(this).val();
+				}
+				payload[key] = val;
+			});
+			log('POST /settings payload (' + Object.keys(payload).length + ' alan):',
+				Object.keys(payload).reduce(function (acc, k) { acc[k] = (k === 'smtpPass' && payload[k]) ? '***' : payload[k]; return acc; }, {}));
 
-			Settings.save('announcement-mailer', $('#announcement-mailer-settings'), function () {
-				log('Settings.save tamamlandı, doğrulama için tekrar yüklüyorum');
-				btn.prop('disabled', false);
-				alerts.alert({ type: 'success', title: 'Kaydedildi', message: 'Ayarlar kaydedildi.', timeout: 3000 });
-
-				// Save'in gerçekten persist olduğunu doğrula
-				Settings.load('announcement-mailer', $('#announcement-mailer-settings'), function () {
-					var verify = {};
-					$('#announcement-mailer-settings [data-key]').each(function () {
-						var key = $(this).attr('data-key');
-						var val = $(this).val();
-						verify[key] = (key === 'smtpPass' && val) ? '***' : val;
-					});
-					log('Kaydedilen değerler (DB\'den okundu):', verify);
-				});
+			$.ajax({
+				url: api('/settings'), method: 'POST', contentType: 'application/json', headers: csrf(),
+				data: JSON.stringify({ settings: payload }),
+				success: function (d) {
+					log('Settings POST başarılı, DB döndü:',
+						Object.keys(d.settings || {}).reduce(function (acc, k) { acc[k] = (k === 'smtpPass' && d.settings[k]) ? '***' : d.settings[k]; return acc; }, {}));
+					alerts.alert({ type: 'success', title: 'Kaydedildi', message: 'Ayarlar kaydedildi.', timeout: 3000 });
+				},
+				error: function (x) {
+					logAjaxErr('save-settings', x);
+					alerts.alert({ type: 'danger', title: 'Hata', message: x.responseJSON?.error || 'Ayarlar kaydedilemedi.', timeout: 5000 });
+				},
+				complete: function () { btn.prop('disabled', false); },
 			});
 		});
 
@@ -284,6 +292,26 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 	// ========================
 	// HELPERS
 	// ========================
+
+	function loadSettingsHttp(done) {
+		$.get(api('/settings'), function (d) {
+			var settings = (d && d.settings) || {};
+			log('GET /settings başarılı (' + Object.keys(settings).length + ' alan)');
+			$('#announcement-mailer-settings [data-key]').each(function () {
+				var key = $(this).attr('data-key');
+				if (settings[key] === undefined || settings[key] === null) return;
+				if ($(this).is(':checkbox')) {
+					$(this).prop('checked', settings[key] === 'on' || settings[key] === true || settings[key] === '1');
+				} else {
+					$(this).val(settings[key]);
+				}
+			});
+			if (typeof done === 'function') done();
+		}).fail(function (x) {
+			logAjaxErr('loadSettingsHttp', x);
+			if (typeof done === 'function') done();
+		});
+	}
 
 	function renderGroupCheckbox(containerSelector, cls, groupName, checked) {
 		var safeId = cls + '-' + groupName.replace(/[^a-zA-Z0-9_-]/g, '_');

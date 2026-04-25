@@ -218,6 +218,34 @@ Plugin.init = async function (params) {
 
 	const apiBase = '/api/admin/plugins/announcement-mailer';
 
+	// GET /settings — HTTP fallback for Settings.load (websocket-independent)
+	router.get(`${apiBase}/settings`, middleware.ensureLoggedIn, adminRequired, async (req, res) => {
+		try {
+			const settings = (await meta.settings.get(PLUGIN_ID)) || {};
+			return res.json({ settings });
+		} catch (err) {
+			winston.error(`${LOG_PREFIX} Error loading settings: ${err.message}`);
+			return res.status(500).json({ error: 'Failed to load settings' });
+		}
+	});
+
+	// POST /settings — HTTP fallback for Settings.save (websocket-independent)
+	router.post(`${apiBase}/settings`, middleware.ensureLoggedIn, adminRequired, async (req, res) => {
+		try {
+			const incoming = req.body && req.body.settings;
+			if (!incoming || typeof incoming !== 'object') {
+				return res.status(400).json({ error: 'settings nesnesi zorunludur.' });
+			}
+			await meta.settings.set(PLUGIN_ID, incoming);
+			const persisted = (await meta.settings.get(PLUGIN_ID)) || {};
+			winston.info(`${LOG_PREFIX} Settings saved by uid ${req.uid}, keys: ${Object.keys(incoming).join(',')}`);
+			return res.json({ success: true, settings: persisted });
+		} catch (err) {
+			winston.error(`${LOG_PREFIX} Error saving settings: ${err.message}`);
+			return res.status(500).json({ error: 'Ayarlar kaydedilemedi: ' + err.message });
+		}
+	});
+
 	// GET /groups
 	router.get(`${apiBase}/groups`, middleware.ensureLoggedIn, adminRequired, async (req, res) => {
 		try {
