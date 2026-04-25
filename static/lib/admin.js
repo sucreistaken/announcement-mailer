@@ -3,44 +3,72 @@
 define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Settings, alerts) {
 	var ACP = {};
 	var API = '';
+	var LOG = '[announcement-mailer]';
+
+	function log() {
+		var args = Array.prototype.slice.call(arguments);
+		args.unshift(LOG);
+		console.log.apply(console, args);
+	}
+	function logErr() {
+		var args = Array.prototype.slice.call(arguments);
+		args.unshift(LOG);
+		console.error.apply(console, args);
+	}
+	function logAjaxErr(label, x) {
+		logErr(label + ' AJAX error', {
+			status: x && x.status,
+			statusText: x && x.statusText,
+			responseJSON: x && x.responseJSON,
+			responseText: x && x.responseText && String(x.responseText).slice(0, 500),
+		});
+	}
 
 	function api(path) { return API + path; }
 	function csrf() { return { 'x-csrf-token': config.csrf_token }; }
 
 	ACP.init = function () {
 		API = config.relative_path + '/api/admin/plugins/announcement-mailer';
+		log('ACP.init başladı, API base:', API, '| CSRF token mevcut:', !!(window.config && config.csrf_token));
 
 		// ========================
 		// SETTINGS
 		// ========================
+		log('Settings.load çağrılıyor...');
 		Settings.load('announcement-mailer', $('#announcement-mailer-settings'), function () {
+			log('Settings.load tamamlandı, otomatik grupları yüklüyorum');
 			loadAutoGroups();
 		});
 
 		$('#save-settings').on('click', function () {
+			log('save-settings tıklandı');
 			var btn = $(this);
 			btn.prop('disabled', true);
 
 			var autoGroups = [];
 			$('input.auto-group-checkbox:checked').each(function () { autoGroups.push($(this).val()); });
 			$('[data-key="autoEmailGroups"]').val(JSON.stringify(autoGroups));
+			log('Kaydedilecek autoEmailGroups:', autoGroups);
 
 			Settings.save('announcement-mailer', $('#announcement-mailer-settings'), function () {
+				log('Settings.save tamamlandı');
 				btn.prop('disabled', false);
 				alerts.alert({ type: 'success', title: 'Kaydedildi', message: 'Ayarlar kaydedildi.', timeout: 3000 });
 			});
 		});
 
 		$('#test-connection').on('click', function () {
+			log('test-connection tıklandı');
 			var testEmail = prompt('Test email adresi:');
-			if (!testEmail) return;
+			if (!testEmail) { log('Test iptal edildi (email girilmedi)'); return; }
 			var btn = $(this);
 			btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
+			log('SMTP test isteği gönderiliyor →', api('/test'), 'to', testEmail);
 			$.ajax({
 				url: api('/test'), method: 'POST', contentType: 'application/json', headers: csrf(),
 				data: JSON.stringify({ testEmail: testEmail, subject: 'SMTP Test', templateHtml: '<p>SMTP test basarili. Tarih: {date}</p>' }),
-				success: function (d) { alerts.alert({ type: 'success', title: 'Basarili', message: d.message, timeout: 5000 }); },
-				error: function (x) { alerts.alert({ type: 'danger', title: 'Hata', message: x.responseJSON?.error || 'Hata', timeout: 5000 }); },
+				success: function (d) { log('SMTP test başarılı', d); alerts.alert({ type: 'success', title: 'Basarili', message: d.message, timeout: 5000 }); },
+				error: function (x) { logAjaxErr('test-connection', x); alerts.alert({ type: 'danger', title: 'Hata', message: x.responseJSON?.error || 'Hata', timeout: 5000 }); },
 				complete: function () { btn.prop('disabled', false).html('<i class="fa fa-plug"></i> SMTP Test'); },
 			});
 		});
@@ -53,23 +81,29 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 
 		$('#btn-load-template').on('click', function () {
 			var name = $('#template-select').val();
+			log('btn-load-template tıklandı, seçili template:', name);
 			if (!name) return;
 			$.get(api('/templates'), function (d) {
+				log('Template listesi alındı, eşleşme aranıyor:', name, '| toplam:', (d.templates || []).length);
 				var tpl = d.templates.find(function (t) { return t.name === name; });
 				if (tpl) {
 					$('#email-subject').val(tpl.subject || '');
 					$('#email-html').val(tpl.html || '');
 					alerts.alert({ type: 'info', title: 'Yuklendi', message: 'Template yuklendi.', timeout: 2000 });
+				} else {
+					logErr('Template bulunamadı:', name);
 				}
-			});
+			}).fail(function (x) { logAjaxErr('btn-load-template', x); });
 		});
 
 		// Preview with sandboxed iframe
 		$('#btn-preview').on('click', function () {
+			log('btn-preview tıklandı');
 			var subject = $('#email-subject').val();
 			var html = $('#email-html').val();
 			$('#preview-subject').text('Subject: ' + subject);
 			var frame = document.getElementById('preview-frame');
+			if (!frame) { logErr('preview-frame elementi bulunamadı'); return; }
 			var doc = frame.contentDocument || frame.contentWindow.document;
 			doc.open();
 			doc.write(html);
@@ -78,48 +112,58 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 		});
 
 		$('#btn-test').on('click', function () {
+			log('btn-test tıklandı');
 			var testEmail = prompt('Test email adresi:');
-			if (!testEmail) return;
+			if (!testEmail) { log('Test iptal (email yok)'); return; }
 			var subject = $('#email-subject').val().trim();
 			var templateHtml = $('#email-html').val().trim();
-			if (!subject || !templateHtml) { alerts.alert({ type: 'warning', message: 'Subject ve body doldurun.', timeout: 3000 }); return; }
+			if (!subject || !templateHtml) { logErr('Subject veya body boş'); alerts.alert({ type: 'warning', message: 'Subject ve body doldurun.', timeout: 3000 }); return; }
 
 			var btn = $(this);
 			btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
+			log('Test e-posta gönderiliyor →', testEmail);
 			$.ajax({
 				url: api('/test'), method: 'POST', contentType: 'application/json', headers: csrf(),
 				data: JSON.stringify({ testEmail: testEmail, subject: subject, templateHtml: templateHtml }),
-				success: function (d) { alerts.alert({ type: 'success', message: d.message, timeout: 5000 }); },
-				error: function (x) { alerts.alert({ type: 'danger', message: x.responseJSON?.error || 'Hata', timeout: 5000 }); },
+				success: function (d) { log('Test başarılı', d); alerts.alert({ type: 'success', message: d.message, timeout: 5000 }); },
+				error: function (x) { logAjaxErr('btn-test', x); alerts.alert({ type: 'danger', message: x.responseJSON?.error || 'Hata', timeout: 5000 }); },
 				complete: function () { btn.prop('disabled', false).html('<i class="fa fa-paper-plane"></i> Test Email'); },
 			});
 		});
 
 		$('#btn-send').on('click', function () {
+			log('btn-send tıklandı');
 			var subject = $('#email-subject').val().trim();
 			var templateHtml = $('#email-html').val().trim();
 			var selectedGroups = [];
 			$('input.group-checkbox:checked').each(function () { selectedGroups.push($(this).val()); });
 			var scheduledAt = $('#scheduled-at').val();
+			log('Gönderim parametreleri:', { subject: subject, htmlLen: templateHtml.length, groups: selectedGroups, scheduledAt: scheduledAt });
 
 			if (!subject || !templateHtml || selectedGroups.length === 0) {
+				logErr('Eksik alanlar - subject, body veya grup seçilmemiş');
 				alerts.alert({ type: 'warning', message: 'Subject, body ve en az bir grup gerekli.', timeout: 3000 });
 				return;
 			}
 
 			var schedMsg = scheduledAt ? '\nZamanlanmis: ' + new Date(scheduledAt).toLocaleString('tr-TR') : '';
-			if (!confirm('Gondermek istediginizden emin misiniz?\n\nGruplar: ' + selectedGroups.join(', ') + schedMsg)) return;
+			if (!confirm('Gondermek istediginizden emin misiniz?\n\nGruplar: ' + selectedGroups.join(', ') + schedMsg)) {
+				log('Gönderim onayı reddedildi');
+				return;
+			}
 
 			var btn = $(this);
 			btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
 
 			var payload = { subject: subject, templateHtml: templateHtml, groupNames: selectedGroups };
 			if (scheduledAt) payload.scheduledAt = new Date(scheduledAt).getTime();
+			log('POST /send payload (htmlLen=' + payload.templateHtml.length + ')');
 
 			$.ajax({
 				url: api('/send'), method: 'POST', contentType: 'application/json', headers: csrf(),
 				data: JSON.stringify(payload),
 				success: function (d) {
+					log('Send başarıyla başlatıldı:', d);
 					alerts.alert({ type: 'success', title: 'Baslatildi', message: d.message, timeout: 8000 });
 					// Clear form
 					$('#email-subject').val('');
@@ -129,7 +173,7 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 					$('a[href="#tab-history"]').tab('show');
 					loadHistory();
 				},
-				error: function (x) { alerts.alert({ type: 'danger', message: x.responseJSON?.error || 'Hata', timeout: 5000 }); },
+				error: function (x) { logAjaxErr('btn-send', x); alerts.alert({ type: 'danger', message: x.responseJSON?.error || 'Hata', timeout: 5000 }); },
 				complete: function () { btn.prop('disabled', false).html('<i class="fa fa-send"></i> Gonder'); },
 			});
 		});
@@ -137,32 +181,35 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 		// ========================
 		// TEMPLATES TAB
 		// ========================
-		$('a[href="#tab-templates"]').on('shown.bs.tab', loadTemplateList);
+		$('a[href="#tab-templates"]').on('shown.bs.tab', function () { log('Templates tab açıldı'); loadTemplateList(); });
 
 		$('#btn-save-template').on('click', function () {
+			log('btn-save-template tıklandı');
 			var name = $('#tpl-name').val().trim();
 			var subject = $('#tpl-subject').val().trim();
 			var html = $('#tpl-html').val().trim();
-			if (!name || !html) { alerts.alert({ type: 'warning', message: 'Ad ve HTML zorunlu.', timeout: 3000 }); return; }
+			if (!name || !html) { logErr('Template adı veya HTML boş'); alerts.alert({ type: 'warning', message: 'Ad ve HTML zorunlu.', timeout: 3000 }); return; }
+			log('Template kaydediliyor:', name, '(htmlLen=' + html.length + ')');
 
 			$.ajax({
 				url: api('/templates'), method: 'POST', contentType: 'application/json', headers: csrf(),
 				data: JSON.stringify({ name: name, subject: subject, html: html }),
 				success: function (d) {
+					log('Template kaydedildi:', d);
 					alerts.alert({ type: 'success', message: d.message, timeout: 3000 });
 					$('#tpl-name').val(''); $('#tpl-subject').val(''); $('#tpl-html').val('');
 					loadTemplateList();
 					loadTemplateSelect();
 				},
-				error: function (x) { alerts.alert({ type: 'danger', message: x.responseJSON?.error || 'Hata', timeout: 3000 }); },
+				error: function (x) { logAjaxErr('btn-save-template', x); alerts.alert({ type: 'danger', message: x.responseJSON?.error || 'Hata', timeout: 3000 }); },
 			});
 		});
 
 		// ========================
 		// HISTORY TAB
 		// ========================
-		$('a[href="#tab-history"]').on('shown.bs.tab', loadHistory);
-		$('#refresh-history').on('click', loadHistory);
+		$('a[href="#tab-history"]').on('shown.bs.tab', function () { log('History tab açıldı'); loadHistory(); });
+		$('#refresh-history').on('click', function () { log('refresh-history tıklandı'); loadHistory(); });
 
 		// ========================
 		// DELEGATED EVENT HANDLERS
@@ -170,46 +217,53 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 
 		$(document).on('click', '.btn-approve-job', function () {
 			var jobId = $(this).data('job-id');
-			if (!confirm('Bu duyuru emailini onaylamak istiyor musunuz?')) return;
+			log('btn-approve-job tıklandı, jobId:', jobId);
+			if (!confirm('Bu duyuru emailini onaylamak istiyor musunuz?')) { log('Onay reddedildi'); return; }
 			var btn = $(this);
 			btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
 			$.ajax({
 				url: api('/approve/' + jobId), method: 'POST', headers: csrf(),
-				success: function (d) { alerts.alert({ type: 'success', message: d.message, timeout: 5000 }); setTimeout(loadHistory, 1000); },
-				error: function (x) { alerts.alert({ type: 'danger', message: x.responseJSON?.error || 'Hata', timeout: 3000 }); btn.prop('disabled', false).html('<i class="fa fa-check"></i> Onayla'); },
+				success: function (d) { log('Job onaylandı:', d); alerts.alert({ type: 'success', message: d.message, timeout: 5000 }); setTimeout(loadHistory, 1000); },
+				error: function (x) { logAjaxErr('btn-approve-job', x); alerts.alert({ type: 'danger', message: x.responseJSON?.error || 'Hata', timeout: 3000 }); btn.prop('disabled', false).html('<i class="fa fa-check"></i> Onayla'); },
 			});
 		});
 
 		$(document).on('click', '.btn-reject-job, .btn-cancel-job', function () {
 			var jobId = $(this).data('job-id');
-			if (!confirm('Iptal/reddetmek istiyor musunuz?')) return;
+			log('btn-cancel/reject tıklandı, jobId:', jobId);
+			if (!confirm('Iptal/reddetmek istiyor musunuz?')) { log('İptal reddedildi'); return; }
 			$(this).prop('disabled', true);
 			$.ajax({
 				url: api('/cancel/' + jobId), method: 'POST', headers: csrf(),
-				success: function () { setTimeout(loadHistory, 1000); },
-				error: function (x) { alerts.alert({ type: 'danger', message: x.responseJSON?.error || 'Hata', timeout: 3000 }); },
+				success: function (d) { log('Job iptal edildi:', d); setTimeout(loadHistory, 1000); },
+				error: function (x) { logAjaxErr('btn-cancel-job', x); alerts.alert({ type: 'danger', message: x.responseJSON?.error || 'Hata', timeout: 3000 }); },
 			});
 		});
 
 		$(document).on('click', '.btn-retry-job', function () {
 			var jobId = $(this).data('job-id');
-			if (!confirm('Basarisiz emailleri yeniden gondermek istiyor musunuz?')) return;
+			log('btn-retry-job tıklandı, jobId:', jobId);
+			if (!confirm('Basarisiz emailleri yeniden gondermek istiyor musunuz?')) { log('Retry reddedildi'); return; }
 			$(this).prop('disabled', true);
 			$.ajax({
 				url: api('/retry/' + jobId), method: 'POST', headers: csrf(),
-				success: function (d) { alerts.alert({ type: 'success', message: d.message, timeout: 5000 }); setTimeout(loadHistory, 1000); },
-				error: function (x) { alerts.alert({ type: 'danger', message: x.responseJSON?.error || 'Hata', timeout: 3000 }); },
+				success: function (d) { log('Retry başlatıldı:', d); alerts.alert({ type: 'success', message: d.message, timeout: 5000 }); setTimeout(loadHistory, 1000); },
+				error: function (x) { logAjaxErr('btn-retry-job', x); alerts.alert({ type: 'danger', message: x.responseJSON?.error || 'Hata', timeout: 3000 }); },
 			});
 		});
 
 		$(document).on('click', '.btn-delete-template', function () {
 			var name = $(this).data('name');
-			if (!confirm('Template "' + name + '" silinsin mi?')) return;
+			log('btn-delete-template tıklandı, name:', name);
+			if (!confirm('Template "' + name + '" silinsin mi?')) { log('Silme reddedildi'); return; }
 			$.ajax({
 				url: api('/templates/' + encodeURIComponent(name)), method: 'DELETE', headers: csrf(),
-				success: function () { loadTemplateList(); loadTemplateSelect(); },
+				success: function () { log('Template silindi:', name); loadTemplateList(); loadTemplateSelect(); },
+				error: function (x) { logAjaxErr('btn-delete-template', x); },
 			});
 		});
+
+		log('ACP.init tamamlandı, tüm event handlerlar bağlandı.');
 	};
 
 	// ========================
@@ -231,37 +285,44 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 	}
 
 	function loadGroups() {
+		log('loadGroups: GET', api('/groups'));
 		$.get(api('/groups'), function (d) {
+			log('loadGroups başarılı, grup sayısı:', (d.groups || []).length);
 			$('#group-checkboxes').empty();
 			(d.groups || []).forEach(function (g) {
 				renderGroupCheckbox('#group-checkboxes', 'group-checkbox', g, false);
 			});
-		}).fail(function () { $('#group-checkboxes').html('<p class="text-danger">Yuklenemedi.</p>'); });
+		}).fail(function (x) { logAjaxErr('loadGroups', x); $('#group-checkboxes').html('<p class="text-danger">Yuklenemedi.</p>'); });
 	}
 
 	function loadAutoGroups() {
+		log('loadAutoGroups: GET', api('/groups'));
 		$.get(api('/groups'), function (d) {
 			$('#auto-group-checkboxes').empty();
 			var savedRaw = $('[data-key="autoEmailGroups"]').val() || '[]';
 			var saved = [];
-			try { saved = JSON.parse(savedRaw); } catch (e) {}
+			try { saved = JSON.parse(savedRaw); } catch (e) { logErr('autoEmailGroups JSON parse hatası:', e, '| ham değer:', savedRaw); }
+			log('loadAutoGroups: kayıtlı seçimler:', saved);
 
 			(d.groups || []).forEach(function (g) {
 				renderGroupCheckbox('#auto-group-checkboxes', 'auto-group-checkbox', g, saved.indexOf(g) >= 0);
 			});
-		});
+		}).fail(function (x) { logAjaxErr('loadAutoGroups', x); });
 	}
 
 	function loadTemplateSelect() {
+		log('loadTemplateSelect: GET', api('/templates'));
 		$.get(api('/templates'), function (d) {
+			log('loadTemplateSelect başarılı, template sayısı:', (d.templates || []).length);
 			var sel = $('#template-select').empty().append($('<option>').val('').text('-- Template sec --'));
 			(d.templates || []).forEach(function (t) {
 				sel.append($('<option>').val(t.name).text(t.name));
 			});
-		});
+		}).fail(function (x) { logAjaxErr('loadTemplateSelect', x); });
 	}
 
 	function loadTemplateList() {
+		log('loadTemplateList: GET', api('/templates'));
 		var container = $('#template-list');
 		$.get(api('/templates'), function (d) {
 			container.empty();
@@ -269,6 +330,7 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 				container.html('<p class="text-muted">Kayitli template yok.</p>');
 				return;
 			}
+			log('loadTemplateList başarılı, template sayısı:', d.templates.length);
 			d.templates.forEach(function (t) {
 				var wrap = $('<div class="border rounded p-3 bg-body-tertiary mb-2 d-flex align-items-center justify-content-between gap-2">');
 				var info = $('<div class="text-truncate">');
@@ -284,14 +346,16 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 				);
 				container.append(wrap);
 			});
-		});
+		}).fail(function (x) { logAjaxErr('loadTemplateList', x); container.html('<p class="text-danger">Yuklenemedi.</p>'); });
 	}
 
 	function loadHistory() {
+		log('loadHistory: GET', api('/history'));
 		var tbody = $('#history-body');
 		tbody.html('<tr><td colspan="8" class="text-muted text-center"><i class="fa fa-spinner fa-spin"></i></td></tr>');
 
 		$.get(api('/history'), function (d) {
+			log('loadHistory başarılı, kayıt sayısı:', (d.history || []).length);
 			tbody.empty();
 			if (!d.history || d.history.length === 0) {
 				tbody.html('<tr><td colspan="8" class="text-muted text-center">Gonderi yok.</td></tr>');
@@ -313,7 +377,7 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 				row.append($('<td>').html(getActions(job)));
 				tbody.append(row);
 			});
-		});
+		}).fail(function (x) { logAjaxErr('loadHistory', x); tbody.html('<tr><td colspan="8" class="text-danger text-center">Yuklenemedi.</td></tr>'); });
 	}
 
 	function getStatusBadge(job) {
