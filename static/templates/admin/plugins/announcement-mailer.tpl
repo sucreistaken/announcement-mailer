@@ -141,24 +141,24 @@
 							<div class="card-body">
 								<div class="row g-3">
 									<div class="col-12 col-md-8">
-										<label class="form-label fw-medium">SMTP Host</label>
-										<input type="text" data-key="smtpHost" class="form-control" placeholder="mail.ieu.app">
+										<label class="form-label fw-medium" for="smtpHost">SMTP Host</label>
+										<input type="text" id="smtpHost" name="smtpHost" data-key="smtpHost" class="form-control" placeholder="mail.ieu.app">
 									</div>
 									<div class="col-12 col-md-4">
-										<label class="form-label fw-medium">Port</label>
-										<input type="number" data-key="smtpPort" class="form-control" placeholder="587">
+										<label class="form-label fw-medium" for="smtpPort">Port</label>
+										<input type="number" id="smtpPort" name="smtpPort" data-key="smtpPort" class="form-control" placeholder="587">
 									</div>
 									<div class="col-12">
-										<label class="form-label fw-medium">Username</label>
-										<input type="text" data-key="smtpUser" class="form-control" placeholder="noreply@ieu.app">
+										<label class="form-label fw-medium" for="smtpUser">Username</label>
+										<input type="text" id="smtpUser" name="smtpUser" data-key="smtpUser" class="form-control" placeholder="noreply@ieu.app">
 									</div>
 									<div class="col-12">
-										<label class="form-label fw-medium">Password</label>
-										<input type="password" data-key="smtpPass" class="form-control">
+										<label class="form-label fw-medium" for="smtpPass">Password</label>
+										<input type="password" id="smtpPass" name="smtpPass" data-key="smtpPass" class="form-control">
 									</div>
 									<div class="col-12">
-										<label class="form-label fw-medium">From Address</label>
-										<input type="text" data-key="smtpFrom" class="form-control" placeholder="IEU Forum &lt;noreply@ieu.app&gt;">
+										<label class="form-label fw-medium" for="smtpFrom">From Address</label>
+										<input type="text" id="smtpFrom" name="smtpFrom" data-key="smtpFrom" class="form-control" placeholder="IEU Forum &lt;noreply@ieu.app&gt;">
 									</div>
 								</div>
 							</div>
@@ -172,21 +172,21 @@
 							<div class="card-body">
 								<div class="row g-3">
 									<div class="col-6 col-md-3">
-										<label class="form-label fw-medium">Batch Size</label>
-										<input type="number" data-key="batchSize" class="form-control" placeholder="10">
+										<label class="form-label fw-medium" for="batchSize">Batch Size</label>
+										<input type="number" id="batchSize" name="batchSize" data-key="batchSize" class="form-control" placeholder="10">
 										<div class="form-text">Max 500</div>
 									</div>
 									<div class="col-6 col-md-3">
-										<label class="form-label fw-medium">Batch Delay (ms)</label>
-										<input type="number" data-key="batchDelay" class="form-control" placeholder="2000">
+										<label class="form-label fw-medium" for="batchDelay">Batch Delay (ms)</label>
+										<input type="number" id="batchDelay" name="batchDelay" data-key="batchDelay" class="form-control" placeholder="2000">
 									</div>
 									<div class="col-6 col-md-3">
-										<label class="form-label fw-medium">Email Delay (ms)</label>
-										<input type="number" data-key="emailDelay" class="form-control" placeholder="200">
+										<label class="form-label fw-medium" for="emailDelay">Email Delay (ms)</label>
+										<input type="number" id="emailDelay" name="emailDelay" data-key="emailDelay" class="form-control" placeholder="200">
 									</div>
 									<div class="col-6 col-md-3">
-										<label class="form-label fw-medium">Max Retries</label>
-										<input type="number" data-key="maxRetries" class="form-control" placeholder="3">
+										<label class="form-label fw-medium" for="maxRetries">Max Retries</label>
+										<input type="number" id="maxRetries" name="maxRetries" data-key="maxRetries" class="form-control" placeholder="3">
 									</div>
 								</div>
 							</div>
@@ -200,23 +200,23 @@
 							<div class="card-body">
 								<div class="row g-3">
 									<div class="col-12 col-md-6">
-										<label class="form-label fw-medium">Duyuru Kategori ID</label>
-										<input type="number" data-key="announcementCategoryId" class="form-control" placeholder="Bos = devre disi">
+										<label class="form-label fw-medium" for="announcementCategoryId">Duyuru Kategori ID</label>
+										<input type="number" id="announcementCategoryId" name="announcementCategoryId" data-key="announcementCategoryId" class="form-control" placeholder="Bos = devre disi">
 									</div>
 									<div class="col-12 col-md-6">
-										<label class="form-label fw-medium">Otomatik Subject</label>
-										<input type="text" data-key="autoEmailSubject" class="form-control" placeholder="Yeni Duyuru: {topicTitle}">
+										<label class="form-label fw-medium" for="autoEmailSubject">Otomatik Subject</label>
+										<input type="text" id="autoEmailSubject" name="autoEmailSubject" data-key="autoEmailSubject" class="form-control" placeholder="Yeni Duyuru: {topicTitle}">
 									</div>
 									<div class="col-12">
 										<label class="form-label fw-medium">Hedef Gruplar</label>
-										<input type="hidden" data-key="autoEmailGroups" value="[]">
+										<input type="hidden" id="autoEmailGroups" name="autoEmailGroups" data-key="autoEmailGroups" value="[]">
 										<div id="auto-group-checkboxes" class="border rounded p-3 bg-body-tertiary" style="max-height:200px;overflow-y:auto;">
 											<p class="text-muted mb-0"><i class="fa fa-spinner fa-spin me-1"></i> Yukleniyor...</p>
 										</div>
 									</div>
 									<div class="col-12">
-										<label class="form-label fw-medium">Otomatik Email Template</label>
-										<textarea data-key="autoEmailTemplate" class="form-control" rows="8"
+										<label class="form-label fw-medium" for="autoEmailTemplate">Otomatik Email Template</label>
+										<textarea id="autoEmailTemplate" name="autoEmailTemplate" data-key="autoEmailTemplate" class="form-control" rows="8"
 											placeholder="<h2>{topicTitle}</h2><p>Merhaba {username},</p><p>{topicContent}</p><p><a href='{topicUrl}'>Oku</a></p>"></textarea>
 									</div>
 								</div>

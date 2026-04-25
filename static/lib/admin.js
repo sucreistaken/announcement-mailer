@@ -48,12 +48,27 @@ define('admin/plugins/announcement-mailer', ['settings', 'alerts'], function (Se
 			var autoGroups = [];
 			$('input.auto-group-checkbox:checked').each(function () { autoGroups.push($(this).val()); });
 			$('[data-key="autoEmailGroups"]').val(JSON.stringify(autoGroups));
+
+			// Form gerçekten ne içeriyor? jQuery serialize ile bakalım
+			var formData = $('#announcement-mailer-settings').serializeArray();
+			log('Form serialize çıktısı (' + formData.length + ' alan):', formData);
 			log('Kaydedilecek autoEmailGroups:', autoGroups);
 
 			Settings.save('announcement-mailer', $('#announcement-mailer-settings'), function () {
-				log('Settings.save tamamlandı');
+				log('Settings.save tamamlandı, doğrulama için tekrar yüklüyorum');
 				btn.prop('disabled', false);
 				alerts.alert({ type: 'success', title: 'Kaydedildi', message: 'Ayarlar kaydedildi.', timeout: 3000 });
+
+				// Save'in gerçekten persist olduğunu doğrula
+				Settings.load('announcement-mailer', $('#announcement-mailer-settings'), function () {
+					var verify = {};
+					$('#announcement-mailer-settings [data-key]').each(function () {
+						var key = $(this).attr('data-key');
+						var val = $(this).val();
+						verify[key] = (key === 'smtpPass' && val) ? '***' : val;
+					});
+					log('Kaydedilen değerler (DB\'den okundu):', verify);
+				});
 			});
 		});
 
